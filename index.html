@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG to PNG Converter</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111111;
+      color: #e8e8e8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .heading {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    h1 span {
+      font-weight: 400;
+      color: #555;
+    }
+
+    .card {
+      background: #1e1e1e;
+      border-radius: 16px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .drop-zone {
+      background: #2a2a2a;
+      border-radius: 10px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      background: #333;
+    }
+
+    .drop-zone p {
+      font-size: 0.875rem;
+      color: #666;
+      pointer-events: none;
+    }
+
+    .drop-zone span {
+      color: #e8e8e8;
+      font-weight: 500;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .dims-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dims-row label {
+      font-size: 0.825rem;
+      color: #555;
+      white-space: nowrap;
+      width: 3rem;
+    }
+
+    label {
+      font-size: 0.825rem;
+      color: #555;
+      white-space: nowrap;
+    }
+
+    input[type="number"] {
+      width: 90px;
+      background: #2a2a2a;
+      border: none;
+      border-radius: 8px;
+      color: #e8e8e8;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+
+    input[type="number"]:focus {
+      outline: 2px solid #e8e8e8;
+      outline-offset: 1px;
+    }
+
+    .dims-sep {
+      font-size: 0.8rem;
+      color: #444;
+      padding: 0 0.1rem;
+    }
+
+    .lock-btn {
+      align-self: auto;
+      background: #2a2a2a;
+      color: #666;
+      border: none;
+      border-radius: 8px;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .lock-btn:hover {
+      background: #333;
+      color: #e8e8e8;
+    }
+
+    .lock-btn.locked {
+      background: #e8e8e8;
+      color: #111111;
+    }
+
+    .lock-btn.locked:hover {
+      background: #ffffff;
+    }
+
+    .preview-wrap {
+      display: none;
+      background: #2a2a2a;
+      border-radius: 10px;
+      padding: 1rem;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+    }
+
+    .preview-wrap.visible {
+      display: flex;
+    }
+
+    .preview-wrap img {
+      max-width: 100%;
+      max-height: 240px;
+      border-radius: 6px;
+    }
+
+    button {
+      align-self: flex-start;
+      background: #e8e8e8;
+      color: #111111;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.6rem 1.3rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: #ffffff;
+    }
+
+    button:disabled {
+      background: #2a2a2a;
+      color: #444;
+      cursor: not-allowed;
+    }
+
+    .error {
+      font-size: 0.8rem;
+      color: #e05555;
+      display: none;
+    }
+
+    .error.visible {
+      display: block;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="heading">
+    <h1>SVG to PNG. <span>Convert in seconds.</span></h1>
+  </div>
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <p><span>Click to choose</span> or drag an SVG here</p>
+    </div>
+    <input type="file" id="fileInput" accept=".svg,image/svg+xml">
+
+    <div class="dims-row">
+      <label for="exportW">W</label>
+      <input type="number" id="exportW" min="1" max="16000" step="1" placeholder="—">
+      <span class="dims-sep">x</span>
+      <label for="exportH">H</label>
+      <input type="number" id="exportH" min="1" max="16000" step="1" placeholder="—">
+      <button class="lock-btn locked" id="lockBtn" type="button">Lock ratio</button>
+    </div>
+
+    <div class="preview-wrap" id="previewWrap">
+      <img id="preview" alt="SVG preview">
+    </div>
+
+    <p class="error" id="error"></p>
+
+    <button id="convertBtn" disabled>Download PNG</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const exportW = document.getElementById('exportW');
+    const exportH = document.getElementById('exportH');
+    const lockBtn = document.getElementById('lockBtn');
+    const previewWrap = document.getElementById('previewWrap');
+    const preview = document.getElementById('preview');
+    const convertBtn = document.getElementById('convertBtn');
+    const canvas = document.getElementById('canvas');
+    const errorEl = document.getElementById('error');
+
+    let currentFile = null;
+    let svgWidth = 0;
+    let svgHeight = 0;
+    let currentObjectUrl = null;
+    let ratioLocked = true;
+
+    lockBtn.addEventListener('click', () => {
+      ratioLocked = !ratioLocked;
+      lockBtn.classList.toggle('locked', ratioLocked);
+      lockBtn.textContent = ratioLocked ? 'Lock ratio' : 'Free';
+    });
+
+    exportW.addEventListener('input', () => {
+      if (!ratioLocked || !svgWidth || !svgHeight) {
+        return;
+      }
+      const ratio = svgHeight / svgWidth;
+      exportH.value = Math.round(exportW.value * ratio);
+    });
+
+    exportH.addEventListener('input', () => {
+      if (!ratioLocked || !svgWidth || !svgHeight) {
+        return;
+      }
+      const ratio = svgWidth / svgHeight;
+      exportW.value = Math.round(exportH.value * ratio);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        loadFile(file);
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) {
+        loadFile(fileInput.files[0]);
+      }
+    });
+
+    convertBtn.addEventListener('click', convert);
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('visible');
+    }
+
+    function clearError() {
+      errorEl.classList.remove('visible');
+    }
+
+    function loadFile(file) {
+      if (!file.type.includes('svg') && !file.name.endsWith('.svg')) {
+        showError('Please select an SVG file.');
+        return;
+      }
+
+      clearError();
+      currentFile = file;
+
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+
+      currentObjectUrl = URL.createObjectURL(file);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const svgText = e.target.result;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(currentSvgText, 'image/svg+xml');
+        const svgEl = doc.documentElement;
+
+        svgWidth = parseDimension(svgEl.getAttribute('width'));
+        svgHeight = parseDimension(svgEl.getAttribute('height'));
+
+        if ((!svgWidth || !svgHeight) && svgEl.getAttribute('viewBox')) {
+          const parts = svgEl.getAttribute('viewBox').trim().split(/[\s,]+/);
+          svgWidth = parseFloat(parts[2]) || 0;
+          svgHeight = parseFloat(parts[3]) || 0;
+        }
+
+        if (!svgWidth || !svgHeight) {
+          svgWidth = 512;
+          svgHeight = 512;
+        }
+
+        exportW.value = Math.round(svgWidth);
+        exportH.value = Math.round(svgHeight);
+
+        preview.src = currentObjectUrl;
+        previewWrap.classList.add('visible');
+        convertBtn.disabled = false;
+        dropZone.querySelector('p').innerHTML = `<span>${file.name}</span>`;
+      };
+
+      reader.readAsText(file);
+    }
+
+    function parseDimension(val) {
+      if (!val) {
+        return 0;
+      }
+      return parseFloat(val) || 0;
+    }
+
+    function convert() {
+      if (!currentObjectUrl) {
+        return;
+      }
+
+      clearError();
+
+      const w = parseInt(exportW.value, 10) || Math.round(svgWidth);
+      const h = parseInt(exportH.value, 10) || Math.round(svgHeight);
+
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const pngUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        const baseName = currentFile.name.replace(/\.svg$/i, '');
+        a.download = `${baseName}.png`;
+        a.href = pngUrl;
+        a.click();
+      };
+
+      img.onerror = () => {
+        showError('Failed to render SVG. It may contain external resources or scripts.');
+      };
+
+      img.src = currentObjectUrl;
+    }
+  </script>
+</body>
+</html>
